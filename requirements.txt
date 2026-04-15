@@ -1,9 +1,13 @@
-fastapi==0.115.0
-uvicorn==0.30.6
-pydantic==2.9.2
-scikit-learn==1.5.2
+
+# Ce fichier requirements a été simplifié pour un déploiement Streamlit
+# autonome.  Les dépendances liées à FastAPI (fastapi, uvicorn, pydantic)
+# ainsi que requests ne sont plus nécessaires, car la prédiction est
+# effectuée directement dans l'application Streamlit.  La version de
+# scikit-learn est fixée à 1.3.2, qui dispose de roues pré‑compilées
+# compatibles avec Python 3.12 sur Streamlit Community Cloud, ce qui
+# accélère le déploiement.
+scikit-learn==1.3.2
 joblib==1.4.2
 numpy==1.26.4
 pandas==2.2.3
 streamlit==1.39.0
-requests==2.32.3
