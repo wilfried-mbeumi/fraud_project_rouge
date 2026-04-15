@@ -5,13 +5,17 @@ Thème : Rouge Banque (blanc + bordeaux + gris anthracite)
 import streamlit as st
 # Local model loading instead of external API
 import pandas as pd
-from app.model import load_artifact
+import joblib
+from pathlib import Path
 
 # Load the trained model artifact once.  The artifact dictionary contains the
 # version, accuracy, roc_auc and the scikit‑learn model object.  This avoids
 # any external API call and makes the app completely self‑contained for
-# deployment on Streamlit Cloud.
-artifact = load_artifact()
+# deployment on Streamlit Cloud.  We compute the path relative to this file
+# to ensure it works regardless of the import context (e.g. when the module
+# 'app' is not available on the PYTHONPATH).
+_artifact_path = Path(__file__).resolve().parents[1] / "artifacts" / "model.joblib"
+artifact = joblib.load(_artifact_path)
 
 st.set_page_config(page_title="Fraud Detector", page_icon="🏦", layout="centered")
 
