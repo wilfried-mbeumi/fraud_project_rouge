@@ -3,7 +3,6 @@ Interface Streamlit — Fraud Detection v2.0
 Thème : Rouge Banque (blanc + bordeaux + gris anthracite)
 Version autonome pour Streamlit Cloud.
 """
-import os
 from pathlib import Path
 
 import joblib
@@ -14,6 +13,8 @@ st.set_page_config(page_title="Fraud Detector", page_icon="🏦", layout="center
 
 @st.cache_resource
 def load_artifact():
+    # On garde la même interface, mais on charge le modèle localement
+    # depuis artifacts/model.joblib à la racine du repo.
     base_dir = Path(__file__).resolve().parents[1]
     candidates = [
         base_dir / "artifacts" / "model.joblib",
@@ -21,16 +22,14 @@ def load_artifact():
         Path("./artifacts/model.joblib"),
     ]
 
-    existing = [p for p in candidates if p.exists()]
-    if not existing:
-        raise FileNotFoundError(
-            "Impossible de trouver artifacts/model.joblib. "
-            "Ajoutez le fichier dans le dossier artifacts à la racine du repo."
-        )
+    for path in candidates:
+        if path.exists():
+            return joblib.load(path), path
 
-    artifact_path = existing[0]
-    artifact = joblib.load(artifact_path)
-    return artifact, artifact_path
+    raise FileNotFoundError(
+        "Impossible de trouver artifacts/model.joblib. "
+        "Ajoute ton vrai modèle d'origine dans le dossier artifacts."
+    )
 
 st.markdown("""
 <style>
@@ -90,7 +89,7 @@ st.markdown('<div class="card"><div class="card-title">État de l\'API</div>', u
 if load_error:
     st.markdown('<p class="status-err">● Erreur de chargement du modèle</p>', unsafe_allow_html=True)
     st.error(load_error)
-    st.markdown('<p class="small-note">Vérifiez que le fichier <code>artifacts/model.joblib</code> existe bien dans le repo.</p>', unsafe_allow_html=True)
+    st.markdown('<p class="small-note">Vérifie que ton vrai modèle est bien dans <code>artifacts/model.joblib</code>.</p>', unsafe_allow_html=True)
 else:
     version  = artifact.get("version", "—")
     roc_auc  = artifact.get("roc_auc", 0.0) * 100
@@ -139,7 +138,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 if st.button("🔎 Analyser la transaction"):
     if load_error or artifact is None:
-        st.error("❌ Le modèle n'est pas chargé. Corrigez d'abord le fichier artifacts/model.joblib.")
+        st.error("❌ Le modèle n'est pas chargé. Corrige d'abord artifacts/model.joblib.")
     else:
         row = pd.DataFrame([{
             "amount":              amount,
