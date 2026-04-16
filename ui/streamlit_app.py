@@ -1,13 +1,36 @@
 """
 Interface Streamlit — Fraud Detection v2.0
 Thème : Rouge Banque (blanc + bordeaux + gris anthracite)
+Version autonome pour Streamlit Cloud.
 """
-import streamlit as st
-import requests
+import os
+from pathlib import Path
 
-API_URL = "http://127.0.0.1:8000"
+import joblib
+import pandas as pd
+import streamlit as st
 
 st.set_page_config(page_title="Fraud Detector", page_icon="🏦", layout="centered")
+
+@st.cache_resource
+def load_artifact():
+    base_dir = Path(__file__).resolve().parents[1]
+    candidates = [
+        base_dir / "artifacts" / "model.joblib",
+        Path("artifacts/model.joblib"),
+        Path("./artifacts/model.joblib"),
+    ]
+
+    existing = [p for p in candidates if p.exists()]
+    if not existing:
+        raise FileNotFoundError(
+            "Impossible de trouver artifacts/model.joblib. "
+            "Ajoutez le fichier dans le dossier artifacts à la racine du repo."
+        )
+
+    artifact_path = existing[0]
+    artifact = joblib.load(artifact_path)
+    return artifact, artifact_path
 
 st.markdown("""
 <style>
@@ -40,10 +63,10 @@ html, body, [class*="css"] { font-family:'Inter',sans-serif; background:#FFFFFF;
 .status-err { color:#C0392B; font-weight:600; font-size:0.9rem; }
 hr { border:none; border-top:1px solid #E8E8E8!important; margin:1.2rem 0!important; }
 label { font-weight:500!important; color:#2D2D2D!important; font-size:0.88rem!important; }
+.small-note { color:#777; font-size:0.8rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="header-bar">
   <div class="badge">TP MLOps v2.0 · Vrai modèle · 100k transactions</div>
@@ -52,69 +75,90 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── État API ──────────────────────────────────────────────────────────────────
-st.markdown('<div class="card"><div class="card-title">État de l\'API</div>', unsafe_allow_html=True)
+artifact = None
+artifact_path = None
+load_error = None
+
 try:
-    r = requests.get(f"{API_URL}/health", timeout=3)
-    if r.status_code == 200:
-        data = r.json()
-        st.markdown(f"""
-        <div class="metric-row">
-          <div class="metric-box"><div class="metric-val">✅</div><div class="metric-lbl">API en ligne</div></div>
-          <div class="metric-box"><div class="metric-val">{data.get('version','—')}</div><div class="metric-lbl">Version</div></div>
-          <div class="metric-box"><div class="metric-val">{data.get('roc_auc',0)*100:.1f}%</div><div class="metric-lbl">ROC-AUC</div></div>
-          <div class="metric-box"><div class="metric-val">{data.get('accuracy',0)*100:.1f}%</div><div class="metric-lbl">Accuracy</div></div>
-        </div>
-        <p class="status-ok">● Modèle chargé et opérationnel</p>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f'<p class="status-err">● Erreur API : code {r.status_code}</p>', unsafe_allow_html=True)
-except requests.exceptions.ConnectionError:
-    st.markdown('<p class="status-err">● API inaccessible — lancez : uvicorn app.api:app --reload</p>', unsafe_allow_html=True)
-except requests.exceptions.Timeout:
-    st.markdown('<p class="status-err">● Timeout</p>', unsafe_allow_html=True)
+    with st.spinner("Chargement du modèle..."):
+        artifact, artifact_path = load_artifact()
+except Exception as e:
+    load_error = str(e)
+
+st.markdown('<div class="card"><div class="card-title">État de l\'API</div>', unsafe_allow_html=True)
+
+if load_error:
+    st.markdown('<p class="status-err">● Erreur de chargement du modèle</p>', unsafe_allow_html=True)
+    st.error(load_error)
+    st.markdown('<p class="small-note">Vérifiez que le fichier <code>artifacts/model.joblib</code> existe bien dans le repo.</p>', unsafe_allow_html=True)
+else:
+    version  = artifact.get("version", "—")
+    roc_auc  = artifact.get("roc_auc", 0.0) * 100
+    accuracy = artifact.get("accuracy", 0.0) * 100
+
+    st.markdown(f"""
+    <div class="metric-row">
+      <div class="metric-box"><div class="metric-val">✅</div><div class="metric-lbl">API en ligne</div></div>
+      <div class="metric-box"><div class="metric-val">{version}</div><div class="metric-lbl">Version</div></div>
+      <div class="metric-box"><div class="metric-val">{roc_auc:.1f}%</div><div class="metric-lbl">ROC-AUC</div></div>
+      <div class="metric-box"><div class="metric-val">{accuracy:.1f}%</div><div class="metric-lbl">Accuracy</div></div>
+    </div>
+    <p class="status-ok">● Modèle chargé et opérationnel</p>
+    """, unsafe_allow_html=True)
+    st.caption(f"Chemin détecté : {artifact_path}")
+
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ── Formulaire ────────────────────────────────────────────────────────────────
 st.markdown('<div class="card"><div class="card-title">Analyser une transaction</div>', unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
-    amount     = st.number_input("Montant (€)", min_value=0.01, value=75.0, step=5.0)
-    age        = st.number_input("Âge du client", min_value=18, max_value=100, value=35)
+    amount     = st.number_input("Montant (€)", min_value=0.01, value=90.0, step=5.0)
+    age        = st.number_input("Âge du client", min_value=18, max_value=100, value=30)
     hour       = st.slider("Heure de la transaction", 0, 23, 14)
     days_since = st.number_input("Jours depuis dernière transaction", min_value=0, value=7)
 
 with c2:
     gender_lbl  = st.selectbox("Genre", ["Homme (M)", "Femme (F)"])
-    gender      = "M" if "M" in gender_lbl else "F"
+    gender      = "M" if "(M)" in gender_lbl else "F"
     category    = st.selectbox("Catégorie", [
         "grocery","food","travel","entertainment",
         "health","electronics","clothing","fuel","online","atm"
     ])
     foreign_lbl = st.selectbox("Transaction à l'étranger", ["Non (0)", "Oui (1)"])
-    is_foreign  = 1 if "1" in foreign_lbl else 0
+    is_foreign  = 1 if "(1)" in foreign_lbl else 0
     st.markdown("**Payload envoyé à l'API :**")
-    st.code(f'{{"amount":{amount},"age":{age},"transaction_hour":{hour},"days_since_last_txn":{days_since},"gender":"{gender}","category":"{category}","is_foreign_country":{is_foreign}}}', language="json")
+    st.code(
+        f'{{"amount": {amount}, "age": {age}, "transaction_hour": {hour}, '
+        f'"days_since_last_txn": {days_since}, "gender": "{gender}", '
+        f'"category": "{category}", "is_foreign_country": {is_foreign}}}',
+        language="json"
+    )
 
 st.markdown('</div>', unsafe_allow_html=True)
 
 if st.button("🔎 Analyser la transaction"):
-    payload = {
-        "amount": amount, "transaction_hour": hour,
-        "days_since_last_txn": days_since, "is_foreign_country": is_foreign,
-        "age": age, "gender": gender, "category": category,
-    }
-    try:
-        r = requests.post(f"{API_URL}/predict", json=payload, timeout=5)
-        if r.status_code == 200:
-            res   = r.json()
-            pred  = res["prediction"]
-            label = res["label"]
-            proba = res["probability"]
+    if load_error or artifact is None:
+        st.error("❌ Le modèle n'est pas chargé. Corrigez d'abord le fichier artifacts/model.joblib.")
+    else:
+        row = pd.DataFrame([{
+            "amount":              amount,
+            "transaction_hour":    hour,
+            "days_since_last_txn": days_since,
+            "is_foreign_country":  is_foreign,
+            "age":                 age,
+            "gender":              gender,
+            "category":            category,
+        }])
+
+        try:
+            pred  = int(artifact["model"].predict(row)[0])
+            proba = float(artifact["model"].predict_proba(row)[0][1])
+            label = "Fraude" if pred == 1 else "Légitime"
             css   = "fraud" if pred == 1 else "legit"
             icon  = "🚨" if pred == 1 else "✅"
             bar   = "#C0392B" if pred == 1 else "#1A7A3C"
+
             st.markdown(f"""
             <div class="result-card {css}">
               <span class="result-icon">{icon}</span>
@@ -130,19 +174,11 @@ if st.button("🔎 Analyser la transaction"):
                   Probabilité de fraude : {proba*100:.1f}%
                 </div>
               </div>
-              <div class="result-meta">Modèle {res['model_version']} · ROC-AUC {res['roc_auc']*100:.1f}%</div>
+              <div class="result-meta">Modèle {artifact.get('version','—')} · ROC-AUC {artifact.get('roc_auc',0)*100:.1f}%</div>
             </div>
             """, unsafe_allow_html=True)
-        elif r.status_code == 422:
-            st.error("❌ Données invalides (Erreur 422) — vérifiez les champs")
-        else:
-            st.error(f"❌ Erreur API : {r.status_code}")
-    except requests.exceptions.ConnectionError:
-        st.error("❌ API inaccessible. Lancez : uvicorn app.api:app --reload")
-    except requests.exceptions.Timeout:
-        st.error("❌ Timeout — l'API ne répond pas")
-    except Exception as e:
-        st.error(f"❌ Erreur : {e}")
+        except Exception as e:
+            st.error(f"❌ Erreur : {e}")
 
 st.markdown("---")
 st.markdown('<p style="color:#AAA;font-size:0.75rem;text-align:center;">TP MLOps 2025-2026 · Wilfried MBEUMI · Eddie ATINDEHOU · Joël ONANA</p>', unsafe_allow_html=True)
