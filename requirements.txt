@@ -1,5 +1,9 @@
-scikit-learn==1.2.2
-joblib==1.2.0
-pandas==2.0.3
-streamlit==1.32.0
-numpy==1.24.4
+fastapi==0.115.0
+uvicorn==0.30.6
+pydantic==2.9.2
+scikit-learn==1.6.1
+joblib==1.4.2
+numpy==1.26.4
+pandas==2.2.3
+streamlit==1.39.0
+requests==2.32.3
