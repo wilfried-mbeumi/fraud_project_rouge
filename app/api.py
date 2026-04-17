@@ -35,7 +35,6 @@ def health():
 @app.post("/predict", response_model=PredictResponse, tags=["Prédiction"])
 def predict(payload: PredictRequest):
     try:
-        # Construire un DataFrame dans le bon ordre de features
         row = pd.DataFrame([{
             "amount":              payload.amount,
             "transaction_hour":    payload.transaction_hour,
