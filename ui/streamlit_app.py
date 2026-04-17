@@ -7,7 +7,7 @@ import requests
 
 # ⚠️ Remplace cette URL par l'URL publique de ton service Render après déploiement
 # Ex : https://fraud-detection-api-xxxx.onrender.com
-API_URL = "https://REMPLACE-PAR-TON-URL-RENDER.onrender.com"
+API_URL = "https://fraud-project-rouge.onrender.com"
 
 st.set_page_config(page_title="Fraud Detector", page_icon="🏦", layout="centered")
 
